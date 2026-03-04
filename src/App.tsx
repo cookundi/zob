@@ -7,7 +7,8 @@ const REGEX = {
   X_LINK: /^https?:\/\/(www\.)?(twitter|x)\.com\/[a-zA-Z0-9_]+\/status\/[0-9]+(\?.*)?$/
 };
 
-type ViewMode = 'apply' | 'check';
+// Added 'success' state here
+type ViewMode = 'apply' | 'check' | 'success'; 
 type TaskState = 'idle' | 'verifying' | 'input' | 'completed';
 
 export default function App() {
@@ -60,9 +61,7 @@ export default function App() {
     }
   };
 
-  // --- NEW: Submit Application Logic ---
   const submitApplication = async () => {
-    // 1. Verify all tasks are completed
     const allCompleted = Object.values(tasks).every(t => t === 'completed');
     if (!allCompleted) {
       toast('COMPLETE ALL TASKS FIRST', { style: { background: '#ff00ea', color: '#fff', border: '1px solid #000', borderRadius: '0', fontFamily: 'VT323', fontSize: '1rem' }});
@@ -77,12 +76,11 @@ export default function App() {
       });
       
       if (res.ok) {
-        // Generate and copy referral link
-        const refLink = `${window.location.origin}?ref=${formData.username}`;
-        navigator.clipboard.writeText(refLink);
-        toast('APPLICATION SUBMITTED. REF LINK COPIED.', {
-          style: { background: '#fffb00', color: '#000', border: '1px solid #000', borderRadius: '0', fontFamily: 'VT323', fontSize: '1rem' }
-        });
+        // Show success UI instead of just copying
+        setView('success');
+      } else if (res.status === 409) {
+        // Handle Duplicate Entry Error specifically
+        toast('HANDLE OR EVM HAS BEEN SUBMITTED BY SOMEONE ELSE', { style: { background: '#ff00ea', color: '#fff', border: '1px solid #000', borderRadius: '0', fontFamily: 'VT323', fontSize: '1rem' }});
       } else {
         throw new Error('Server error');
       }
@@ -93,14 +91,12 @@ export default function App() {
     }
   };
 
-  // --- NEW: Real Checker Logic ---
   const runChecker = async () => {
     if (!checkQuery) return;
     setIsChecking(true);
-    setCheckResult(null); // Clear previous results
+    setCheckResult(null); 
 
     try {
-      // Pass the username or wallet as a query parameter
       const res = await fetch(`/.netlify/functions/check?q=${encodeURIComponent(checkQuery)}`);
       
       if (res.ok) {
@@ -114,6 +110,12 @@ export default function App() {
     } finally {
       setIsChecking(false);
     }
+  };
+
+  const copyReferralLink = () => {
+    const refLink = `${window.location.origin}?ref=${formData.username}`;
+    navigator.clipboard.writeText(refLink);
+    toast('LINK COPIED TO CLIPBOARD', { style: { background: '#fffb00', color: '#000', border: '1px solid #000', borderRadius: '0', fontFamily: 'VT323', fontSize: '1rem' }});
   };
 
   return (
@@ -135,7 +137,7 @@ export default function App() {
         </div>
       </header>
 
-      {view === 'apply' ? (
+      {view === 'apply' && (
         <div className="space-y-4">
           <TaskBlock num="01" title="FOLLOW X" desc="Follow @ZOBWORLD" state={tasks.follow} value={formData.username} placeholder="@username" regex={REGEX.USERNAME} onChange={(v: any) => setFormData({...formData, username: v})} onAction={() => handleTaskClick('follow', 'https://x.com')} onValidate={() => handleValidation('follow', formData.username, REGEX.USERNAME)} activeBg="bg-zob-cyan/10" />
           <TaskBlock num="02" title="LIKE & RT" desc="Interact with this post" state={tasks.likeRt} value={formData.likeRtLink} placeholder="https://x.com/.../status/..." regex={REGEX.X_LINK} onChange={(v: any) => setFormData({...formData, likeRtLink: v})} onAction={() => handleTaskClick('likeRt', 'https://x.com/pinned')} onValidate={() => handleValidation('likeRt', formData.likeRtLink, REGEX.X_LINK)} activeBg="bg-zob-pink/10" />
@@ -158,10 +160,40 @@ export default function App() {
           </div>
 
           <button onClick={submitApplication} disabled={isSubmitting} className="w-full mt-6 border cursor-pointer border-black bg-white hover:bg-black hover:text-white text-lg py-3 transition-colors disabled:opacity-50">
-            {isSubmitting ? '[ PROCESSING... ]' : 'SUBMIT APPLICATION'}
+            {isSubmitting ? ' PROCESSING... ' : 'SUBMIT APPLICATION'}
           </button>
         </div>
-      ) : (
+      )}
+
+      {/* NEW SUCCESS VIEW */}
+      {view === 'success' && (
+        <div className="border border-black bg-white p-8 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-300">
+          <h2 className="text-3xl mb-2 text-black">DOSSIER SECURED.</h2>
+          <p className="text-xl text-gray-700 mb-8 max-w-sm">
+            INCREASE YOUR CHANCES FOR APPROVAL BY REFERRING OTHERS TO ZOBWORLD.
+          </p>
+
+          <div className="w-full border border-black p-4 bg-zob-yellow/20 flex flex-col gap-3">
+            <span className="text-sm text-gray-500 text-left">YOUR UNIQUE REF LINK:</span>
+            <div className="flex gap-2 items-center">
+              <input 
+                type="text" 
+                readOnly 
+                value={`${window.location.origin}?ref=${formData.username}`} 
+                className="flex-1 bg-white border border-black px-2 py-2 text-lg outline-none selection:bg-black selection:text-white"
+              />
+              <button 
+                onClick={copyReferralLink} 
+                className="border border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer text-lg"
+              >
+                [ COPY ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'check' && (
         <div className="border border-black bg-white p-6 flex flex-col items-center">
           <p className="text-base mb-4">ENTER IDENTIFIER (X USERNAME OR 0X...)</p>
           <div className="flex gap-2 w-full max-w-sm mb-6">
@@ -172,7 +204,7 @@ export default function App() {
           </div>
 
           {checkResult && (
-            <div className="w-full max-w-sm border border-black p-4 bg-zob-yellow/20 flex flex-col gap-2 text-lg">
+            <div className="w-full max-w-sm border border-black p-4 bg-zob-yellow/20 flex flex-col gap-2 text-lg animate-in fade-in">
               <div className="flex justify-between border-b border-black/20 pb-1">
                 <span>STATUS:</span> <span>{checkResult.status}</span>
               </div>
