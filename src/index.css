@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --font-vt323: "VT323", monospace;
+  --color-zob-cyan: #00f0ff;
+  --color-zob-pink: #ff00ea;
+  --color-zob-yellow: #fffb00;
+}
+
+body {
+  background-color: #ffffff;
+  /* Multi-colored thin grid */
+  background-image: 
+    linear-gradient(rgba(0, 240, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 0, 234, 0.15) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: #000000;
+  font-family: var(--font-vt323);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #000; }
